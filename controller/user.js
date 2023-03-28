@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const EmailToken = require("../models/emailVerificationToken");
 const PasswordResetToken = require("../models/passwordResetToken");
@@ -133,6 +134,7 @@ exports.forgetPassword = async (req, res) => {
   });
   await newPasswordResetToken.save();
 
+  // creating password reset link and sending to user's email
   const resetPasswordUrl = `http://localhost:3000/reset-password?token=${newToken}&id=${user._id}`;
   var transport = mailService();
   transport.sendMail({
@@ -151,12 +153,15 @@ exports.forgetPassword = async (req, res) => {
 exports.isValidPasswordResetToken = async (req, res) => {
   const { token, userId } = req.body;
 
+  // check object id is valid
   if (!isValidObjectId(userId) || !token)
     return sendError(res, "Invalid request!");
 
+  // check user is valid
   const user = await User.findOne({ _id: userId });
   if (!user) return sendError(res, "User not found", 404);
 
+  // check token is valid
   const resetToken = await PasswordResetToken.findOne({ owner: userId });
   if (!resetToken)
     return sendError(res, "unauthorised access, invalid request");
@@ -164,31 +169,47 @@ exports.isValidPasswordResetToken = async (req, res) => {
   const isMatched = await resetToken.compareToken(token);
   if (!isMatched) return sendError(res, "unauthorised access, invalid request");
 
+  // success response
   return sendSuccess(res, "Verified successfully.");
 };
 
 exports.resetPassword = async (req, res) => {
-  const { newPassword, userId, token } = req.body;
-  const user = await User.findOne({ _id: userId });
+  const { password, userId, token } = req.body;
 
+  // check user is valid
+  const user = await User.findOne({ _id: userId });
   if (!user) return sendError(res, "User not found", 404);
 
+  // validate password reset token
   const resetToken = await PasswordResetToken.findOne({ owner: userId });
   if (!resetToken) return sendError(res, "Unauthorised access!");
   const tokenMatched = await resetToken.compareToken(token);
   if (!tokenMatched) return sendError(res, "Unauthorised access!");
 
-  const isOldPassword = await user.comparePassword(newPassword);
+  // compare new password with old password
+  const isOldPassword = await user.comparePassword(password);
   if (isOldPassword)
     return sendError(res, "New password must be different from old password!");
 
+  // delete password reset token and save new password
   await PasswordResetToken.findByIdAndDelete(resetToken._id);
-  user.password = newPassword;
+  user.password = password;
   await user.save();
 
+  // success response
   return sendSuccess(res, "Password changed successfully");
 };
 
-exports.loginUser = (req, res) => {
-  return sendSuccess(res, "Connected");
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) return sendError(res, "Email/Password mismatch!");
+
+  const matchPassword = await user.comparePassword(password);
+  if (!matchPassword) return sendError(res, "Email/Password mismatch");
+
+  const { _id, name } = user;
+
+  const jwtToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET);
+  return sendSuccess(res, { id: _id, name, email, token: jwtToken });
 };

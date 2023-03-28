@@ -16,7 +16,7 @@ const {
   validatePassword,
 } = require("../middlewares/validator");
 
-router.post("/signup", isUserExist, createUser);
+router.post("/signup", isUserExist, validatePassword, validate, createUser);
 router.post("/signin", userValidator, validate, loginUser);
 router.post("/verify-email", emailVerification);
 router.post("/re-verify-email", resendEmailVerificationToken);

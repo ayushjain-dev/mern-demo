@@ -9,7 +9,7 @@ exports.mailService = () =>
     host: "sandbox.smtp.mailtrap.io",
     port: 2525,
     auth: {
-      user: "7451490dc5a936",
-      pass: "bf2310906c2a3c",
+      user: process.env.MAIL_TRAP_ID,
+      pass: process.env.MAIL_TRAP_PASS,
     },
   });

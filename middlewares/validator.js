@@ -21,7 +21,7 @@ exports.userValidator = [
 ];
 
 exports.validatePassword = [
-  check("newPassword")
+  check("password")
     .trim()
     .not()
     .isEmpty()
